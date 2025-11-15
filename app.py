@@ -1,17 +1,35 @@
 import os
+
 from dotenv import load_dotenv
 from openai import OpenAI
 import streamlit as st
 import pdfplumber
 import docx
+from PIL import Image
 
-# Load API Key
+# ---------------------- Config & Client ----------------------
+
 load_dotenv()
 api_key = os.getenv("OPENAI_API_KEY")
+
+if not api_key:
+    st.error(
+        "OPENAI_API_KEY is not set. "
+        "Please configure it in Streamlit secrets or your .env file."
+    )
+    st.stop()
+
 client = OpenAI(api_key=api_key)
 
-# -------- PDF Extraction --------
-def extract_text_from_pdf(uploaded_pdf):
+# Limit to keep very large reports under control
+MAX_CHARS = 16000
+
+
+# ---------------------- Helpers ----------------------
+
+
+def extract_text_from_pdf(uploaded_pdf) -> str:
+    """Extract text from a PDF file."""
     text = ""
     with pdfplumber.open(uploaded_pdf) as pdf:
         for page in pdf.pages:
@@ -20,86 +38,146 @@ def extract_text_from_pdf(uploaded_pdf):
                 text += page_text + "\n"
     return text
 
-# -------- DOCX Extraction --------
-def extract_text_from_docx(uploaded_docx):
-    doc = docx.Document(uploaded_docx)
-    full_text = []
-    for paragraph in doc.paragraphs:
-        full_text.append(paragraph.text)
-    return "\n".join(full_text)
 
-# -------- Summarizer --------
+def extract_text_from_docx(uploaded_docx) -> str:
+    """Extract text from a DOCX file."""
+    document = docx.Document(uploaded_docx)
+    paragraphs = [p.text for p in document.paragraphs if p.text.strip()]
+    return "\n".join(paragraphs)
+
+
 def summarize_report(report_text: str) -> str:
-    prompt = f"""
-You summarize IT and business reports for stakeholders
-in manufacturing and ERP environments.
+    """Call OpenAI to summarize the report in a structured, business-friendly way."""
 
-Provide 3 sections:
+    trimmed_text = report_text[:MAX_CHARS]
+
+    prompt = f"""
+You are the **Duravant Digital Assistant**, supporting IT, SAP, and operations teams.
+
+You receive reports exported from systems like SAP, Dynamics 365, or plant-floor tools.
+Your job is to turn them into a concise, executive-ready summary that busy managers
+and analysts can act on quickly.
+
+Using the report below, produce three sections using clear markdown headings:
 
 ## Executive Summary
-8–10 sentences.
+8–10 sentences explaining the situation in plain business language. Mention process,
+systems, plants, or customers if relevant.
 
 ## Key Points
-5–8 bullet points.
+5–8 bullet points capturing the most important facts, metrics, risks, and decisions.
 
 ## Recommended Actions
-3–5 action items.
-
-Make it concise and business-friendly.
+3–6 specific, action-oriented bullet points. Focus on what operations, IT/SAP, or
+management should do next.
 
 Report:
-\"\"\"{report_text}\"\"\"
+\"\"\"{trimmed_text}\"\"\"
 """
 
     response = client.responses.create(
         model="gpt-4o-mini",
-        input=prompt
+        input=prompt,
     )
 
     return response.output[0].content[0].text
 
 
-# ---------------------- UI -----------------------
+def show_header():
+    # If you named the file differently, change "logo.png" below
+    try:
+        logo = Image.open("logo.png")
+        st.image(logo, width=200)
+    except Exception:
+        # If logo not found, just show the title
+        pass
 
-st.title("AI Report Summarizer")
+    st.title("Duravant Digital Assistant")
+    st.caption(
+        "Smart summaries for SAP & Dynamics 365 reports — built to cut reading time "
+        "and reduce confusion across operations and IT."
+    )
+    st.markdown("---")
 
-st.write("Upload a PDF/DOCX or paste text to get an executive summary.")
 
-# ---------------------- File Upload Section -----------------------
-st.subheader("Option A: Upload a File (PDF or DOCX)")
+# ---------------------- UI ----------------------
 
-uploaded_file = st.file_uploader("Upload your report", type=["pdf", "docx"])
 
-file_text = ""
+def main():
+    show_header()
 
-if uploaded_file:
-    if uploaded_file.type == "application/pdf":
-        file_text = extract_text_from_pdf(uploaded_file)
+    st.markdown(
+        "Upload a report exported from **SAP**, **Dynamics 365**, or another system, "
+        "or simply paste the contents below. The assistant will generate an "
+        "executive-ready summary, key points, and recommended actions."
+    )
 
-    elif uploaded_file.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
-        file_text = extract_text_from_docx(uploaded_file)
+    tab_file, tab_text = st.tabs(
+        ["📄 Upload report (PDF / DOCX)", "✏️ Paste report text"]
+    )
 
-    st.success("File uploaded and text extracted!")
+    # ---------- Tab A: File Upload ----------
+    with tab_file:
+        st.subheader("Upload a report file")
 
-# ---------------------- Text Input Section -----------------------
-st.subheader("Option B: Paste Text")
+        uploaded_file = st.file_uploader(
+            "Choose a PDF or Word (DOCX) report",
+            type=["pdf", "docx"],
+            help="For example: downtime reports, production summaries, quality logs, "
+                 "change requests, or service reports.",
+        )
 
-manual_text = st.text_area("Paste your report text here", height=250)
+        if uploaded_file is not None:
+            if uploaded_file.type == "application/pdf":
+                raw_text = extract_text_from_pdf(uploaded_file)
+            elif (
+                uploaded_file.type
+                == "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            ):
+                raw_text = extract_text_from_docx(uploaded_file)
+            else:
+                st.error("Unsupported file type.")
+                raw_text = ""
 
-# ---------------------- Summarize -----------------------
-if st.button("Summarize"):
+            if raw_text.strip():
+                st.success("Report loaded successfully. Ready to summarize.")
+                with st.expander("Preview extracted text (optional)"):
+                    st.write(raw_text[:1500] + ("...\n\n[truncated]" if len(raw_text) > 1500 else ""))
 
-    if uploaded_file and file_text.strip():
-        # If file uploaded
-        with st.spinner("Summarizing file..."):
-            summary = summarize_report(file_text)
-        st.markdown(summary)
+                if st.button("Summarize uploaded report", key="summarize_file"):
+                    with st.spinner("Generating summary…"):
+                        summary = summarize_report(raw_text)
+                    st.subheader("AI Summary")
+                    st.markdown(summary)
+            else:
+                st.warning(
+                    "No readable text was found in this file. "
+                    "Please check the document or try another file."
+                )
 
-    elif manual_text.strip():
-        # If text pasted
-        with st.spinner("Summarizing text..."):
-            summary = summarize_report(manual_text)
-        st.markdown(summary)
+    # ---------- Tab B: Text Input ----------
+    with tab_text:
+        st.subheader("Paste report text")
 
-    else:
-        st.warning("Please upload a file OR paste text before summarizing.")
+        example_hint = (
+            "Paste here the body of a downtime report, SAP change request, "
+            "Dynamics 365 export, or any long operational/IT document."
+        )
+        manual_text = st.text_area(
+            "Report text",
+            height=260,
+            placeholder=example_hint,
+        )
+
+        if st.button("Summarize pasted text", key="summarize_text"):
+            if not manual_text.strip():
+                st.warning("Please paste a report before summarizing.")
+            else:
+                with st.spinner("Generating summary…"):
+                    summary = summarize_report(manual_text)
+                st.subheader("AI Summary")
+                st.markdown(summary)
+
+
+if __name__ == "__main__":
+    main()
