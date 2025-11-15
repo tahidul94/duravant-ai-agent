@@ -5,7 +5,7 @@ from openai import OpenAI
 import streamlit as st
 import pdfplumber
 import docx
-from PIL import Image
+
 
 # ---------------------- Config & Client ----------------------
 
@@ -84,20 +84,14 @@ Report:
 
 
 def show_header():
-    # If you named the file differently, change "logo.png" below
-    try:
-        logo = Image.open("logo.png")
-        st.image(logo, width=200)
-    except Exception:
-        # If logo not found, just show the title
-        pass
-
+    st.image("logo.png", width=200)
     st.title("Duravant Digital Assistant")
     st.caption(
-        "Smart summaries for SAP & Dynamics 365 reports — built to cut reading time "
+        "Smart summaries for SAP & Dynamics 365 reports – built to cut reading time "
         "and reduce confusion across operations and IT."
     )
     st.markdown("---")
+
 
 
 # ---------------------- UI ----------------------
