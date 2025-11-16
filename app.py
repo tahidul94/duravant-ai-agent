@@ -24,20 +24,30 @@ def inject_custom_css():
     st.markdown(
         """
         <style>
+
+        /* GLOBAL LAYOUT -------------------------------------------*/
         .stApp {
-            background-color: #f3f4f6;
-        }
-        html, body, [class^="css"] {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background-color: #f7f7f8;  /* softer neutral */
         }
 
+        html, body, [class^="css"] {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            color: #1f2937;  /* dark gray text */
+        }
+
+        p, li {
+            line-height: 1.55 !important; /* better readability */
+            font-size: 15px !important;
+        }
+
+        /* HEADER ---------------------------------------------------*/
         .da-header {
-            padding: 10px 4px 16px 4px;
+            padding: 10px 4px 20px 4px;
             border-bottom: 1px solid #e5e7eb;
             margin-bottom: 10px;
         }
         .da-title {
-            font-size: 28px;
+            font-size: 30px;
             font-weight: 600;
             color: #111827;
             margin-bottom: 4px;
@@ -47,51 +57,77 @@ def inject_custom_css():
             font-size: 14px;
         }
 
+        /* CARD STYLING ---------------------------------------------*/
         .da-card {
-            background-color: #ffffff;
+            background-color: #ffffff; /* pure white for clean contrast */
             border-radius: 12px;
-            padding: 18px 20px;
+            padding: 20px 22px;
             border: 1px solid #e5e7eb;
-            box-shadow: 0 1px 4px rgba(15, 23, 42, 0.04);
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
             margin-top: 12px;
         }
+
         .da-card-title {
             font-weight: 600;
             color: #111827;
             font-size: 14px;
-            margin-bottom: 10px;
+            margin-bottom: 12px;
             text-transform: uppercase;
-            letter-spacing: 0.08em;
+            letter-spacing: 0.07em;
         }
 
+        /* BULLET LIST IMPROVED SPACING -----------------------------*/
+        ul {
+            margin-top: 8px !important;
+            margin-bottom: 8px !important;
+        }
+
+        li {
+            margin-bottom: 6px !important; /* spacing between bullet lines */
+        }
+
+        /* SIDEBAR --------------------------------------------------*/
         section[data-testid="stSidebar"] {
-            background-color: #111827;
+            background-color: #f0f0f0;
         }
         section[data-testid="stSidebar"] * {
-            color: #e5e7eb !important;
+            color: #111827 !important;
         }
         section[data-testid="stSidebar"] .stButton>button {
-            background-color: #f9fafb;
-            color: #111827;
+            background-color: #ffffff;
             border-radius: 999px;
-            border: none;
+            color: #111827;
+            border: 1px solid #d1d5db;
             font-weight: 500;
         }
 
+        /* CHAT ------------------------------------------------------*/
         [data-testid="stChatMessage"] {
-            border-radius: 10px;
+            border-radius: 12px;
             padding: 10px 12px !important;
-            margin-bottom: 6px;
+            margin-bottom: 8px;
+        }
+
+        /* More subtle bubble colors */
+        [data-testid="stChatMessage"][data-testid="stChatMessage-user"] {
+            background-color: #e0f2fe !important;  /* light blue */
+            color: #111827 !important;
+        }
+
+        [data-testid="stChatMessage"][data-testid="stChatMessage-assistant"] {
+            background-color: #fef3c7 !important; /* light warm yellow */
+            color: #111827 !important;
         }
 
         .stChatInputContainer {
             border-radius: 999px !important;
+            border: 1px solid #d1d5db !important;
         }
+
         </style>
         """,
         unsafe_allow_html=True,
     )
-
 
 # ---------- Header ----------
 def show_header():
