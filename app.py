@@ -31,7 +31,7 @@ def show_header():
 
     st.title("Duravant Digital Assistant")
     st.caption(
-        "ChatGPT-style assistant for SAP & Dynamics 365 reports, "
+        "Duravant assistant for SAP & Dynamics 365 reports, "
         "incident logs, quality records, and maintenance documents."
     )
     st.markdown("---")
