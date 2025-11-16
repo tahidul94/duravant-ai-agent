@@ -4,7 +4,6 @@ import os
 import io
 import streamlit as st
 import pandas as pd
-
 from openai import OpenAI
 
 # Optional: PDF parsing
@@ -16,17 +15,15 @@ except ImportError:
 
 # ---------- OpenAI client ----------
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-
 MODEL_SUMMARY = "gpt-4.1-mini"
 MODEL_CHAT = "gpt-4.1-mini"
 
 
-# ---------- Styling ----------
+# ---------- Minimal styling ----------
 def inject_custom_css():
     st.markdown(
         """
         <style>
-        /* Global layout / colors */
         .stApp {
             background-color: #f3f4f6;
         }
@@ -34,48 +31,28 @@ def inject_custom_css():
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         }
 
-        /* Header */
         .da-header {
-            padding: 10px 4px 24px 4px;
+            padding: 10px 4px 16px 4px;
             border-bottom: 1px solid #e5e7eb;
             margin-bottom: 10px;
         }
         .da-title {
-            font-size: 30px;
+            font-size: 28px;
             font-weight: 600;
-            color: #0f172a;
+            color: #111827;
             margin-bottom: 4px;
         }
         .da-subtitle {
             color: #6b7280;
-            font-size: 15px;
+            font-size: 14px;
         }
 
-        /* Hero metric cards */
-        .da-metric-card {
-            background-color: #ffffff;
-            border-radius: 12px;
-            padding: 12px 16px;
-            border: 1px solid #e5e7eb;
-            box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
-            font-size: 13px;
-        }
-        .da-metric-label {
-            text-transform: uppercase;
-            font-weight: 600;
-            letter-spacing: 0.07em;
-            font-size: 11px;
-            color: #6b7280;
-            margin-bottom: 2px;
-        }
-
-        /* Main content cards */
         .da-card {
             background-color: #ffffff;
-            border-radius: 14px;
+            border-radius: 12px;
             padding: 18px 20px;
             border: 1px solid #e5e7eb;
-            box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04);
+            box-shadow: 0 1px 4px rgba(15, 23, 42, 0.04);
             margin-top: 12px;
         }
         .da-card-title {
@@ -87,10 +64,8 @@ def inject_custom_css():
             letter-spacing: 0.08em;
         }
 
-        /* Sidebar */
         section[data-testid="stSidebar"] {
             background-color: #111827;
-            color: #e5e7eb;
         }
         section[data-testid="stSidebar"] * {
             color: #e5e7eb !important;
@@ -103,14 +78,12 @@ def inject_custom_css():
             font-weight: 500;
         }
 
-        /* Chat bubbles (very light styling to keep it robust to changes) */
         [data-testid="stChatMessage"] {
             border-radius: 10px;
-            padding: 12px 14px !important;
+            padding: 10px 12px !important;
             margin-bottom: 6px;
         }
 
-        /* Chat input */
         .stChatInputContainer {
             border-radius: 999px !important;
         }
@@ -122,60 +95,17 @@ def inject_custom_css():
 
 # ---------- Header ----------
 def show_header():
-    with st.container():
-        col_logo, col_text = st.columns([1, 4])
-
-        with col_logo:
-            try:
-                st.image("logo.png", use_column_width=True)
-            except Exception:
-                st.markdown("### 🤖")
-
-        with col_text:
-            st.markdown(
-                """
-                <div class="da-header">
-                    <div class="da-title">Duravant Digital Assistant</div>
-                    <div class="da-subtitle">
-                        Duravant AI assistance for SAP &amp; Dynamics 365 reports, incident logs, quality records, and maintenance documents.
-                    </div>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-
-        # Small metric cards under header
-        m1, m2, m3 = st.columns(3)
-        with m1:
-            st.markdown(
-                """
-                <div class="da-metric-card">
-                    <div class="da-metric-label">Report types</div>
-                    Downtime • Quality • Service • Change Requests
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-        with m2:
-            st.markdown(
-                """
-                <div class="da-metric-card">
-                    <div class="da-metric-label">Outputs</div>
-                    Structured summaries, root causes, business impact, actions
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-        with m3:
-            st.markdown(
-                """
-                <div class="da-metric-card">
-                    <div class="da-metric-label">Interaction</div>
-                    Chat-style Q&amp;A grounded in uploaded reports
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
+    st.markdown(
+        """
+        <div class="da-header">
+            <div class="da-title">Duravant Digital Assistant</div>
+            <div class="da-subtitle">
+                Upload a report to get a structured summary, then ask follow-up questions in a chat-style interface.
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 # ---------- File handling / text extraction ----------
@@ -232,7 +162,6 @@ def load_report_text(uploaded_file) -> str:
 
 # ---------- LLM helpers ----------
 def generate_summary(report_text: str) -> str:
-    """Generate a structured summary of the uploaded report."""
     trimmed = report_text[:15000]
 
     system_prompt = (
@@ -261,7 +190,6 @@ def generate_summary(report_text: str) -> str:
 
 
 def chat_with_report(user_message: str, report_text: str, summary: str, chat_history: list) -> str:
-    """Answer questions using the report text + summary + chat history."""
     report_snippet = report_text[:15000]
     summary_snippet = summary[:6000]
 
@@ -274,8 +202,7 @@ def chat_with_report(user_message: str, report_text: str, summary: str, chat_his
         "3) The prior conversation history\n\n"
         "If the user asks for information that is not present in the report, clearly say:\n"
         "'The report does not contain that information.'\n\n"
-        "Be clear, concise, and use professional language suitable for operations, maintenance, "
-        "supply chain, and finance stakeholders."
+        "Be clear, concise, and use professional language."
     )
 
     messages = [{"role": "system", "content": system_prompt}]
@@ -331,17 +258,12 @@ def main():
     init_session_state()
     show_header()
 
-    # Sidebar
+    # Sidebar (simple)
     with st.sidebar:
-        st.markdown("### 📂 Step 1: Upload a report")
+        st.markdown("### Upload a report")
         uploaded_file = st.file_uploader(
-            "SAP/D365 exports, incident logs, quality or service reports",
+            "PDF, CSV, Excel, or TXT",
             type=["pdf", "csv", "xlsx", "xls", "txt"],
-        )
-
-        st.markdown("### 💬 Step 2: Ask questions")
-        st.caption(
-            "Once the summary is generated, use the chat panel to explore causes, impacts, and actions."
         )
 
         if st.button("Reset conversation"):
@@ -350,61 +272,56 @@ def main():
 
         st.markdown("---")
         st.caption(
-            "Good candidates: downtime reports, production summaries, quality logs, "
-            "change requests, service reports, maintenance records."
+            "Examples: downtime reports, production summaries, incident reports, "
+            "quality logs, change requests, service and maintenance reports."
         )
 
-    # Handle new upload
-    if uploaded_file is not None:
-        if st.session_state.last_filename != uploaded_file.name:
-            with st.spinner("Reading and analyzing the report..."):
-                report_text = load_report_text(uploaded_file)
-                st.session_state.report_text = report_text
-                st.session_state.summary = generate_summary(report_text)
-                st.session_state.last_filename = uploaded_file.name
-                reset_conversation()
-            st.success("Report processed and summary generated.")
+    # Handle new upload -> summary first
+    if uploaded_file is not None and st.session_state.last_filename != uploaded_file.name:
+        with st.spinner("Reading and summarizing the report..."):
+            report_text = load_report_text(uploaded_file)
+            st.session_state.report_text = report_text
+            st.session_state.summary = generate_summary(report_text)
+            st.session_state.last_filename = uploaded_file.name
+            reset_conversation()
+        st.success("Summary generated. Review it below, then ask questions.")
 
-    # Main layout
-    col_summary, col_chat = st.columns([1, 2])
+    # SUMMARY CARD (always above chat)
+    st.markdown(
+        '<div class="da-card"><div class="da-card-title">Report Summary</div>',
+        unsafe_allow_html=True,
+    )
 
-    # Summary card
-    with col_summary:
-        st.markdown(
-            '<div class="da-card"><div class="da-card-title">Report Summary</div>',
-            unsafe_allow_html=True,
-        )
+    if st.session_state.summary:
+        st.markdown(st.session_state.summary)
+    else:
+        st.info("Upload a report in the sidebar to generate a summary.")
 
-        if st.session_state.summary:
-            st.markdown(st.session_state.summary)
-        else:
-            st.info("Upload a report in the sidebar to generate a summary.")
+    st.markdown("</div>", unsafe_allow_html=True)
 
-        st.markdown("</div>", unsafe_allow_html=True)
-
-    # Chat card
-    with col_chat:
+    # Only show chat section AFTER we have a summary
+    if st.session_state.summary:
         st.markdown(
             '<div class="da-card"><div class="da-card-title">Chat with the report</div>',
             unsafe_allow_html=True,
         )
 
         if not st.session_state.report_text:
-            st.info("Upload a report first, then you can ask questions here.")
+            st.info("Upload a report first.")
         else:
-            # Show history
+            # Existing history
             for turn in st.session_state.chat_history:
                 with st.chat_message(turn["role"]):
                     st.markdown(turn["content"])
 
-            # New input
+            # New question
             user_input = st.chat_input("Ask a question about this report...")
             if user_input:
-                # Show user message immediately
+                # Show user message
                 with st.chat_message("user"):
                     st.markdown(user_input)
 
-                # Get assistant answer
+                # Get answer
                 with st.chat_message("assistant"):
                     with st.spinner("Thinking..."):
                         reply = chat_with_report(
@@ -415,7 +332,7 @@ def main():
                         )
                         st.markdown(reply)
 
-                # Update history
+                # Save history
                 st.session_state.chat_history.extend(
                     [
                         {"role": "user", "content": user_input},
