@@ -6,7 +6,7 @@ import streamlit as st
 import pandas as pd
 from openai import OpenAI
 
-# Optional: PDF parsing
+# Optional PDF support
 try:
     import pypdf
 except ImportError:
@@ -19,143 +19,30 @@ MODEL_SUMMARY = "gpt-4.1-mini"
 MODEL_CHAT = "gpt-4.1-mini"
 
 
-# ---------- Minimal styling ----------
-def inject_custom_css():
-    st.markdown(
-        """
-        <style>
-
-        /* GLOBAL LAYOUT -------------------------------------------*/
-        .stApp {
-            background-color: #f7f7f8;  /* softer neutral */
-        }
-
-        html, body, [class^="css"] {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-            color: #1f2937;  /* dark gray text */
-        }
-
-        p, li {
-            line-height: 1.55 !important; /* better readability */
-            font-size: 15px !important;
-        }
-
-        /* HEADER ---------------------------------------------------*/
-        .da-header {
-            padding: 10px 4px 20px 4px;
-            border-bottom: 1px solid #e5e7eb;
-            margin-bottom: 10px;
-        }
-        .da-title {
-            font-size: 30px;
-            font-weight: 600;
-            color: #111827;
-            margin-bottom: 4px;
-        }
-        .da-subtitle {
-            color: #6b7280;
-            font-size: 14px;
-        }
-
-        /* CARD STYLING ---------------------------------------------*/
-        .da-card {
-            background-color: #ffffff; /* pure white for clean contrast */
-            border-radius: 12px;
-            padding: 20px 22px;
-            border: 1px solid #e5e7eb;
-            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
-            margin-top: 12px;
-        }
-
-        .da-card-title {
-            font-weight: 600;
-            color: #111827;
-            font-size: 14px;
-            margin-bottom: 12px;
-            text-transform: uppercase;
-            letter-spacing: 0.07em;
-        }
-
-        /* BULLET LIST IMPROVED SPACING -----------------------------*/
-        ul {
-            margin-top: 8px !important;
-            margin-bottom: 8px !important;
-        }
-
-        li {
-            margin-bottom: 6px !important; /* spacing between bullet lines */
-        }
-
-        /* SIDEBAR --------------------------------------------------*/
-        section[data-testid="stSidebar"] {
-            background-color: #f0f0f0;
-        }
-        section[data-testid="stSidebar"] * {
-            color: #111827 !important;
-        }
-        section[data-testid="stSidebar"] .stButton>button {
-            background-color: #ffffff;
-            border-radius: 999px;
-            color: #111827;
-            border: 1px solid #d1d5db;
-            font-weight: 500;
-        }
-
-        /* CHAT ------------------------------------------------------*/
-        [data-testid="stChatMessage"] {
-            border-radius: 12px;
-            padding: 10px 12px !important;
-            margin-bottom: 8px;
-        }
-
-        /* More subtle bubble colors */
-        [data-testid="stChatMessage"][data-testid="stChatMessage-user"] {
-            background-color: #e0f2fe !important;  /* light blue */
-            color: #111827 !important;
-        }
-
-        [data-testid="stChatMessage"][data-testid="stChatMessage-assistant"] {
-            background-color: #fef3c7 !important; /* light warm yellow */
-            color: #111827 !important;
-        }
-
-        .stChatInputContainer {
-            border-radius: 999px !important;
-            border: 1px solid #d1d5db !important;
-        }
-
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
-
 # ---------- Header ----------
 def show_header():
-    st.markdown(
-        """
-        <div class="da-header">
-            <div class="da-title">Duravant Digital Assistant</div>
-            <div class="da-subtitle">
-                Upload a report to get a structured summary, then ask follow-up questions in a chat-style interface.
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
+    # Show logo if present
+    if os.path.exists("logo.png"):
+        st.image("logo.png", width=180)
+    st.title("Duravant Digital Assistant")
+    st.caption(
+        "Upload a report to generate a summary, then ask follow-up questions."
     )
+    st.markdown("---")
 
 
-# ---------- File handling / text extraction ----------
+# ---------- File parsing ----------
 def extract_text_from_pdf(file) -> str:
     if pypdf is None:
-        return "PDF support not available. Install 'pypdf' to enable PDF parsing."
+        return "PDF support not available. Install pypdf."
 
     reader = pypdf.PdfReader(file)
     pages = []
-    for page in reader.pages:
+    for p in reader.pages:
         try:
-            pages.append(page.extract_text() or "")
-        except Exception:
-            continue
+            pages.append(p.extract_text() or "")
+        except:
+            pages.append("")
     return "\n\n".join(pages)
 
 
@@ -166,19 +53,19 @@ def extract_text_from_csv(file) -> str:
 
 def extract_text_from_excel(file) -> str:
     xls = pd.ExcelFile(file)
-    parts = []
+    out = []
     for sheet in xls.sheet_names:
         df = xls.parse(sheet)
-        parts.append(f"=== Sheet: {sheet} ===\n{df.to_string(index=False)}")
-    return "\n\n".join(parts)
+        out.append(f"== Sheet: {sheet} ==\n{df.to_string(index=False)}")
+    return "\n\n".join(out)
 
 
 def load_report_text(uploaded_file) -> str:
     if uploaded_file is None:
         return ""
 
-    file_bytes = uploaded_file.read()
-    buffer = io.BytesIO(file_bytes)
+    bytes_data = uploaded_file.read()
+    buffer = io.BytesIO(bytes_data)
     name = uploaded_file.name.lower()
 
     if name.endswith(".pdf"):
@@ -188,195 +75,153 @@ def load_report_text(uploaded_file) -> str:
     elif name.endswith((".xlsx", ".xls")):
         return extract_text_from_excel(buffer)
     elif name.endswith(".txt"):
-        return file_bytes.decode(errors="ignore")
+        return bytes_data.decode(errors="ignore")
     else:
         try:
-            return file_bytes.decode(errors="ignore")
-        except Exception:
-            return "Unsupported file type. Please upload PDF, CSV, XLSX, or TXT."
+            return bytes_data.decode(errors="ignore")
+        except:
+            return "Unsupported file format."
 
 
-# ---------- LLM helpers ----------
+# ---------- LLM handlers ----------
 def generate_summary(report_text: str) -> str:
-    trimmed = report_text[:15000]
-
-    system_prompt = (
-        "You are the Duravant Digital Assistant. You analyze manufacturing and ERP-related "
-        "documents such as downtime reports, production summaries, quality logs, change requests, "
-        "service reports, and maintenance records.\n\n"
-        "Summarize the content in the following structured format:\n"
-        "1) Summary of Issue or Topic\n"
-        "2) Technical Findings / Key Details\n"
-        "3) Business Impact\n"
-        "4) Immediate Corrective Actions (if applicable)\n"
-        "5) Follow-up Recommendations\n\n"
-        "Use concise bullet points. If a section is not relevant, write 'Not specified in the report.'"
+    prompt = (
+        "You are the Duravant Digital Assistant. Summarize the following report using this structure:\n\n"
+        "1. Summary of Issue or Topic\n"
+        "2. Technical Findings / Key Details\n"
+        "3. Business Impact\n"
+        "4. Immediate Corrective Actions\n"
+        "5. Follow-up Recommendations\n\n"
+        "Keep it concise and only based on the content provided."
     )
 
     response = client.chat.completions.create(
         model=MODEL_SUMMARY,
         messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": trimmed},
+            {"role": "system", "content": prompt},
+            {"role": "user", "content": report_text[:15000]},
         ],
-        temperature=0.2,
+        temperature=0,
     )
 
     return response.choices[0].message.content.strip()
 
 
-def chat_with_report(user_message: str, report_text: str, summary: str, chat_history: list) -> str:
-    report_snippet = report_text[:15000]
-    summary_snippet = summary[:6000]
-
+def chat_with_report(user_text: str, report_text: str, summary: str, history: list):
     system_prompt = (
-        "You are the Duravant Digital Assistant, a conversational assistant that answers questions "
-        "about manufacturing and ERP-related documents.\n\n"
-        "You MUST base your answers only on:\n"
-        "1) The original report text\n"
-        "2) The generated summary\n"
-        "3) The prior conversation history\n\n"
-        "If the user asks for information that is not present in the report, clearly say:\n"
-        "'The report does not contain that information.'\n\n"
-        "Be clear, concise, and use professional language."
+        "You are the Duravant Digital Assistant. Answer questions ONLY using:\n"
+        "- The uploaded report\n"
+        "- The summary\n"
+        "- The chat history\n\n"
+        "If the user asks something not in the report, say: "
+        "'The report does not contain that information.'"
     )
 
     messages = [{"role": "system", "content": system_prompt}]
 
-    context_block = (
-        "Here is the current report context.\n\n"
-        "=== SUMMARY ===\n"
-        f"{summary_snippet}\n\n"
-        "=== ORIGINAL REPORT TEXT (SNIPPET) ===\n"
-        f"{report_snippet}\n"
+    # Add context
+    context = (
+        "=== SUMMARY ===\n" + summary[:6000] +
+        "\n\n=== REPORT CONTENT (trimmed) ===\n" + report_text[:15000]
     )
-    messages.append({"role": "assistant", "content": context_block})
+    messages.append({"role": "assistant", "content": context})
 
-    for turn in chat_history:
+    # Add previous conversation
+    for turn in history:
         messages.append(turn)
 
-    messages.append({"role": "user", "content": user_message})
+    # Add new question
+    messages.append({"role": "user", "content": user_text})
 
     response = client.chat.completions.create(
         model=MODEL_CHAT,
         messages=messages,
-        temperature=0.2,
+        temperature=0,
     )
 
     return response.choices[0].message.content.strip()
 
 
-# ---------- Session state ----------
-def init_session_state():
-    if "report_text" not in st.session_state:
-        st.session_state.report_text = ""
-    if "summary" not in st.session_state:
-        st.session_state.summary = ""
-    if "chat_history" not in st.session_state:
-        st.session_state.chat_history = []
-    if "last_filename" not in st.session_state:
-        st.session_state.last_filename = None
+# ---------- Session State ----------
+def init_state():
+    for key in ["report_text", "summary", "chat_history", "last_file"]:
+        if key not in st.session_state:
+            st.session_state[key] = None if key != "chat_history" else []
 
 
-def reset_conversation():
+def reset_chat():
     st.session_state.chat_history = []
 
 
-# ---------- Main app ----------
+# ---------- MAIN ----------
 def main():
-    st.set_page_config(
-        page_title="Duravant Digital Assistant",
-        page_icon="🤖",
-        layout="wide",
-    )
+    st.set_page_config(page_title="Duravant Digital Assistant", layout="wide")
 
-    inject_custom_css()
-    init_session_state()
+    init_state()
     show_header()
 
-    # Sidebar (simple)
+    # Sidebar
     with st.sidebar:
-        st.markdown("### Upload a report")
-        uploaded_file = st.file_uploader(
-            "PDF, CSV, Excel, or TXT",
-            type=["pdf", "csv", "xlsx", "xls", "txt"],
+        st.subheader("Upload a report")
+        uploaded = st.file_uploader(
+            "PDF, CSV, Excel or TXT",
+            type=["pdf", "csv", "xlsx", "xls", "txt"]
         )
 
         if st.button("Reset conversation"):
-            reset_conversation()
-            st.success("Conversation reset.")
+            reset_chat()
+            st.success("Conversation cleared.")
 
         st.markdown("---")
-        st.caption(
-            "Examples: downtime reports, production summaries, incident reports, "
-            "quality logs, change requests, service and maintenance reports."
-        )
+        st.caption("Examples: downtime reports, service reports, quality logs, maintenance logs, change requests.")
 
-    # Handle new upload -> summary first
-    if uploaded_file is not None and st.session_state.last_filename != uploaded_file.name:
-        with st.spinner("Reading and summarizing the report..."):
-            report_text = load_report_text(uploaded_file)
+    # New file uploaded
+    if uploaded and uploaded.name != st.session_state.last_file:
+        with st.spinner("Reading and summarizing report..."):
+            report_text = load_report_text(uploaded)
             st.session_state.report_text = report_text
             st.session_state.summary = generate_summary(report_text)
-            st.session_state.last_filename = uploaded_file.name
-            reset_conversation()
-        st.success("Summary generated. Review it below, then ask questions.")
+            st.session_state.last_file = uploaded.name
+            reset_chat()
+        st.success("Summary generated. Scroll down to review.")
 
-    # SUMMARY CARD (always above chat)
-    st.markdown(
-        '<div class="da-card"><div class="da-card-title">Report Summary</div>',
-        unsafe_allow_html=True,
-    )
-
+    # Summary Section
+    st.subheader("Report Summary")
     if st.session_state.summary:
         st.markdown(st.session_state.summary)
     else:
-        st.info("Upload a report in the sidebar to generate a summary.")
+        st.info("Upload a report to generate a summary.")
 
-    st.markdown("</div>", unsafe_allow_html=True)
+    st.markdown("---")
 
-    # Only show chat section AFTER we have a summary
+    # Chat Section
     if st.session_state.summary:
-        st.markdown(
-            '<div class="da-card"><div class="da-card-title">Chat with the report</div>',
-            unsafe_allow_html=True,
-        )
+        st.subheader("Chat with the report")
 
-        if not st.session_state.report_text:
-            st.info("Upload a report first.")
-        else:
-            # Existing history
-            for turn in st.session_state.chat_history:
-                with st.chat_message(turn["role"]):
-                    st.markdown(turn["content"])
+        # Show previous messages
+        for msg in st.session_state.chat_history:
+            with st.chat_message(msg["role"]):
+                st.markdown(msg["content"])
 
-            # New question
-            user_input = st.chat_input("Ask a question about this report...")
-            if user_input:
-                # Show user message
-                with st.chat_message("user"):
-                    st.markdown(user_input)
+        # Input
+        user_input = st.chat_input("Ask a question...")
+        if user_input:
+            # Show user message
+            st.chat_message("user").markdown(user_input)
 
-                # Get answer
-                with st.chat_message("assistant"):
-                    with st.spinner("Thinking..."):
-                        reply = chat_with_report(
-                            user_message=user_input,
-                            report_text=st.session_state.report_text,
-                            summary=st.session_state.summary,
-                            chat_history=st.session_state.chat_history,
-                        )
-                        st.markdown(reply)
+            # Generate reply
+            reply = chat_with_report(
+                user_input,
+                st.session_state.report_text,
+                st.session_state.summary,
+                st.session_state.chat_history,
+            )
 
-                # Save history
-                st.session_state.chat_history.extend(
-                    [
-                        {"role": "user", "content": user_input},
-                        {"role": "assistant", "content": reply},
-                    ]
-                )
+            st.chat_message("assistant").markdown(reply)
 
-        st.markdown("</div>", unsafe_allow_html=True)
+            # Store in history
+            st.session_state.chat_history.append({"role": "user", "content": user_input})
+            st.session_state.chat_history.append({"role": "assistant", "content": reply})
 
 
 if __name__ == "__main__":
