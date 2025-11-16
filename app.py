@@ -137,7 +137,7 @@ def show_header():
                 <div class="da-header">
                     <div class="da-title">Duravant Digital Assistant</div>
                     <div class="da-subtitle">
-                        Modern AI copilot for SAP &amp; Dynamics 365 reports, incident logs, quality records, and maintenance documents.
+                        Duravant AI assistance for SAP &amp; Dynamics 365 reports, incident logs, quality records, and maintenance documents.
                     </div>
                 </div>
                 """,
